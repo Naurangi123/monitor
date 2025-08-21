@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="stylesheet" href="./styles.css">
+    <title>System Process Monitor</title>
+</head>
+
+<body>
+    <header>
+        <div class="title">
+            <span class="emblem"></span>
+            <div>
+                <h1>System Process Monitor</h1>
+                <div class="sub">Operational Console </div>
+            </div>
+        </div>
+        <div class="toolbar">
+            <label for="hostSelect" style="font-size:13px">Host</label>
+            <select id="hostSelect" aria-label="Select host"></select>
+            <button id="refreshBtn" class="primary">Refresh</button>
+            <input id="searchInput" class="srch" type="text" placeholder="Search process name…"
+                aria-label="Search process" />
+            <div class="spacer"></div>
+            <span class="ts" id="ts">—</span>
+        </div>
+    </header>
+    <main>
+        <section class="card">
+            <div class="card-header">
+                <div class="card-title">Processes</div>
+                <div>
+                    <button id="exportBtn" class="outline">Export CSV</button>
+                </div>
+            </div>
+            <div class="table-wrap">
+                <table id="procTable" role="table">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>PID</th>
+                            <th>Process Name</th>
+                            <th>CPU %</th>
+                            <th>RSS (MB)</th>
+                            <th>PPID</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tbody"></tbody>
+                </table>
+            </div>
+        </section>
+    </main>
+    <script type="text/javascript" src="./index.js"></script>
+</body>
+
+</html>
