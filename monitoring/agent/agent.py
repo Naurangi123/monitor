@@ -10,7 +10,7 @@ DEFAULT_CONFIG = {
     "endpoint": "http://127.0.0.1:8000/api/ingest/",
     "api_key": "super-secret-agent-key",
     "hostname": None,
-    "interval": 30  
+    "interval": 60
 }
 
 def load_config():
@@ -89,7 +89,7 @@ def run_agent(cfg):
         except requests.RequestException as e:
             print("Ingest failed:", e)
 
-        # time.sleep(interval)
+        time.sleep(interval)
 
 if __name__ == "__main__":
     cfg = load_config()
