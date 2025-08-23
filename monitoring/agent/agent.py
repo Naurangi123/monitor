@@ -1,7 +1,10 @@
-
-import json, socket, sys, time
+import json
+import socket
+import sys
+import time
 from datetime import datetime, timezone
 from pathlib import Path
+
 import psutil
 import requests
 
@@ -10,62 +13,73 @@ DEFAULT_CONFIG = {
     "endpoint": "http://127.0.0.1:8000/api/ingest/",
     "api_key": "super-secret-agent-key",
     "hostname": None,
-    "interval": 60
+    "interval": 60,  
 }
+
 
 def load_config():
     cfg = DEFAULT_CONFIG.copy()
-    p = Path(__file__).with_name("config.json")
-    if p.exists():
+    config_file = Path(__file__).with_name("config.json")
+
+    if config_file.exists():
         try:
-            file_cfg = json.loads(p.read_text())
-            cfg.update(file_cfg)
+            with config_file.open("r", encoding="utf-8") as f:
+                file_cfg = json.load(f)
+                cfg.update(file_cfg)
         except Exception as e:
-            print("Could not read config.json, using defaults:", e)
+            print(f"[WARN] Could not parse config.json: {e}", file=sys.stderr)
+
     return cfg
 
 
 def collect_system_stats():
+    vm = psutil.virtual_memory()
+    net = psutil.net_io_counters()
+
     return {
         "cpu_percent": psutil.cpu_percent(interval=None),
         "memory": {
-            "total": psutil.virtual_memory().total,
-            "available": psutil.virtual_memory().available,
-            "used": psutil.virtual_memory().used,
-            "percent": psutil.virtual_memory().percent,
+            "total": vm.total,
+            "available": vm.available,
+            "used": vm.used,
+            "percent": vm.percent,
         },
         "network": {
-            "bytes_sent": psutil.net_io_counters().bytes_sent,
-            "bytes_recv": psutil.net_io_counters().bytes_recv,
-            "packets_sent": psutil.net_io_counters().packets_sent,
-            "packets_recv": psutil.net_io_counters().packets_recv,
+            "bytes_sent": net.bytes_sent,
+            "bytes_recv": net.bytes_recv,
+            "packets_sent": net.packets_sent,
+            "packets_recv": net.packets_recv,
         },
     }
 
+
 def collect_snapshot():
     procs = []
-    for p in psutil.process_iter(attrs=["pid", "ppid", "name", "cmdline", "memory_info"]):
+    for proc in psutil.process_iter(attrs=["pid", "ppid", "name", "cmdline", "memory_info"]):
         try:
-            info = p.info
+            info = proc.info
             procs.append({
-                "pid": info.get("pid"),
-                "ppid": info.get("ppid"),
+                "pid": info["pid"],
+                "ppid": info["ppid"],
                 "name": info.get("name") or "",
                 "cmdline": " ".join(info.get("cmdline") or []),
-                "cpu_percent": p.cpu_percent(interval=None),
-                "memory_rss": getattr(info.get("memory_info"), "rss", None)
+                "cpu_percent": proc.cpu_percent(interval=None),
+                "memory_rss": getattr(info["memory_info"], "rss", None),
             })
         except (psutil.NoSuchProcess, psutil.AccessDenied):
             continue
     return procs
 
+
 def run_agent(cfg):
     endpoint = cfg["endpoint"].rstrip("/") + "/"
-    api_key = cfg["api_key"]
-    hostname = cfg["hostname"] or socket.gethostname()
-    interval = cfg["interval"]
+    headers = {
+        "Content-Type": "application/json",
+        "X-API-Key": cfg["api_key"],
+    }
 
-    headers = {"Content-Type": "application/json", "X-API-Key": api_key}
+    hostname = cfg["hostname"] or socket.gethostname()
+    interval = cfg.get("interval", 60)
 
     psutil.cpu_percent(interval=None)
     for p in psutil.process_iter():
@@ -79,19 +93,22 @@ def run_agent(cfg):
             "hostname": hostname,
             "snapshot_time": datetime.now(timezone.utc).isoformat(),
             "system": collect_system_stats(),
-            "processes": collect_snapshot()
+            "processes": collect_snapshot(),
         }
 
         try:
-            r = requests.post(endpoint, headers=headers, json=payload, timeout=15)
-            r.raise_for_status()
-            print("Ingest ok:", r.json())
+            resp = requests.post(endpoint, headers=headers, json=payload, timeout=15)
+            resp.raise_for_status()
+            print(f"[INFO] Ingest ok: {resp.json()}")
         except requests.RequestException as e:
-            print("Ingest failed:", e)
+            print(f"[ERROR] Ingest failed: {e}", file=sys.stderr)
 
         time.sleep(interval)
 
-if __name__ == "__main__":
-    cfg = load_config()
-    run_agent(cfg)
 
+if __name__ == "__main__":
+    config = load_config()
+    try:
+        run_agent(config)
+    except KeyboardInterrupt:
+        print("\n[INFO] Agent stopped by user")

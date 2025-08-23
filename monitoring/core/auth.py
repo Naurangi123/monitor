@@ -1,4 +1,4 @@
-# Simple hardcoded API key check
+
 API_KEY = "super-secret-agent-key"
 
 def check_api_key(request):
