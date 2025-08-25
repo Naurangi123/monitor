@@ -10,15 +10,15 @@ class IngestView(views.APIView):
         s = IngestPayloadSerializer(data=request.data)
         s.is_valid(raise_exception=True)
         data = s.validated_data
-
         with transaction.atomic():
             host, _ = Host.objects.get_or_create(hostname=data["hostname"])
-            snap = Snapshot.objects.create(host=host, taken_at=data["snapshot_time"])
-            processes = [
-                Process(snapshot=snap, **p) for p in data["processes"]
-            ]
+            snap = Snapshot.objects.create(
+                host=host,
+                taken_at=data["snapshot_time"],
+                data=data.get("system") or {}
+            )
+            processes = [Process(snapshot=snap, **p) for p in data["processes"]]
             Process.objects.bulk_create(processes)
-
         return response.Response({"status": "ok", "snapshot_id": snap.id}, status=status.HTTP_201_CREATED)
 
 class HostsListView(generics.ListAPIView):
